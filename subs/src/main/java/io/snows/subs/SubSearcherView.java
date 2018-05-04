@@ -332,8 +332,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                 fos = null;
                 inputStream.close();
                 //
-                File exout = new File(ws, filename + "_");
-                exout.mkdir();
+                File exout = new File(ws);
                 err = autoDecompress(having, file, exout);
                 subs = listSubs(exout);
                 storeHaving(ws, having);
@@ -403,7 +402,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                 fos.close();
                 fos = null;
                 String sha1 = hos.sha1();
-                if (set.containsKey(sha1)) {
+                if (set.containsKey(sha1) && new File(out, set.get(sha1)).exists()) {
                     outfile.delete();
                 } else {
                     set.put(sha1, outfile.getName());
@@ -468,7 +467,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                 fos.close();
                 fos = null;
                 String sha1 = hos.sha1();
-                if (set.containsKey(sha1)) {
+                if (set.containsKey(sha1) && new File(out, set.get(sha1)).exists()) {
                     outfile.delete();
                 } else {
                     set.put(sha1, outfile.getName());
