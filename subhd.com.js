@@ -1,6 +1,6 @@
 function findSubs() {
     var subs = [];
-    $(".d_title a").each(function (e) {
+    $(".first a").each(function (e) {
         var href = $(this).attr("href");
         if (/^\/.*$/.test(href)) {
             subs.push({ href: window.location.origin + href, text: $(this).text() });
@@ -42,7 +42,8 @@ function findSubs2() {
 }
 
 function clickDown() {
-    document.getElementById("down").click();
+    document.getElementById("down1").click();
+    //document.getElementsByClassName("btn-danger")[1]
 }
 
 

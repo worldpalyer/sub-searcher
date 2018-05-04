@@ -9,8 +9,13 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.webkit.ValueCallback;
+
+import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+
 import io.snows.subs.SubSearcher;
+import io.snows.subs.SubSearcherView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -62,12 +67,16 @@ public class MainActivity extends AppCompatActivity {
             SubSearcher subs = (SubSearcher) this.findViewById(R.id.subs);
             //web.loadUrl("http://wwww.baidu.com");
             String ws = this.getCacheDir().getAbsolutePath() + "/subs";
+//            SubSearcherView.autoDecompress(new HashMap<String, String>(), new File(ws + "/tmp/[zmk.tw]The.Crossing.S01E01.720p.WEB.H264-DEFLATE.chs.eng.rar"), new File(ws));
+//            if (true) {
+//                return;
+//            }
 //            SubSearcher subs = new SubhdSearcher(web, ws);
 //            SubSearcher subs = new AssrtSearcher(web, ws);
 //            web.loadUrl("http://wwww.baidu.com");
 //            //ViewGroup vv=(ViewGroup)getWindow().getDecorView().getRootView();
 //            //vv.addView(subs.getWeb());
-            subs.search(ws, "the.crossing.s01e01", new ValueCallback<List<String>>() {
+            subs.search(null, ws, "the.crossing.s01e02", new ValueCallback<List<String>>() {
                 @Override
                 public void onReceiveValue(List<String> value) {
                     System.out.println(value);

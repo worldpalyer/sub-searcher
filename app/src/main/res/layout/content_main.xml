@@ -10,17 +10,21 @@
 
     <io.snows.subs.SubsSearcherLayout
         android:id="@+id/subs"
-        android:visibility="invisible"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:visibility="visible">
 
-        <io.snows.subs.SubhdSearcherView
+        <io.snows.subs.ZimukuSearcherView
             android:layout_width="match_parent"
-            android:layout_height="match_parent"></io.snows.subs.SubhdSearcherView>
+            android:layout_height="match_parent"></io.snows.subs.ZimukuSearcherView>
 
-        <io.snows.subs.AssrtSearcherView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"></io.snows.subs.AssrtSearcherView>
+        <!--<io.snows.subs.SubhdSearcherView-->
+            <!--android:layout_width="match_parent"-->
+            <!--android:layout_height="match_parent"></io.snows.subs.SubhdSearcherView>-->
+
+        <!--<io.snows.subs.AssrtSearcherView-->
+            <!--android:layout_width="match_parent"-->
+            <!--android:layout_height="match_parent"></io.snows.subs.AssrtSearcherView>-->
     </io.snows.subs.SubsSearcherLayout>
 
     <Button

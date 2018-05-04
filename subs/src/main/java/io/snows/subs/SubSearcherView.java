@@ -13,27 +13,38 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import com.github.junrar.Archive;
+import com.github.junrar.exception.RarException;
 import com.github.junrar.extract.ExtractArchive;
+import com.github.junrar.rarfile.FileHeader;
 
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.utils.IOUtils;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONString;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import info.debatty.java.stringsimilarity.NormalizedLevenshtein;
@@ -45,7 +56,8 @@ import okhttp3.Response;
 
 public abstract class SubSearcherView extends WebView implements DownloadListener, SubSearcher {
     private String key;
-    private String running;
+    protected String running;
+    protected String regRunning;
     private String searching;
     private String downing;
     private ValueCallback<List<String>> callback;
@@ -53,6 +65,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
     private int slinkIdx = 0;
     private String ws;
     private Exception err;
+    private Map<String, String> having = new HashMap<>();
     private Handler h = new Handler() {
 
         @Override
@@ -65,6 +78,12 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                     evaluateJavascript(downSubsScript(), null);
                     break;
                 case 21:
+                    break;
+                case 30:
+                    onMatchRegRunning(SubSearcherView.this, msg.obj.toString());
+                    break;
+                case 100:
+                    loadUrl("about:blank");
                     break;
             }
         }
@@ -94,6 +113,58 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
         settings.setJavaScriptEnabled(true);
     }
 
+    public static Map<String, String> loadHaving(String ws) {
+        Map<String, String> having = new HashMap<>();
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream(ws + "/.subs.json");
+            byte[] data = IOUtils.toByteArray(fis);
+            fis.close();
+            fis = null;
+            JSONObject json = new JSONObject(new String(data, "utf-8"));
+            Iterator<String> keys = json.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                having.put(key, json.getString(key));
+            }
+        } catch (IOException e) {
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (fis != null) {
+                    fis.close();
+                }
+            } catch (Exception e) {
+
+            }
+        }
+        return having;
+    }
+
+    public static void storeHaving(String ws, Map<String, String> having) throws IOException {
+        String data = new JSONObject(having).toString();
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(ws + "/.subs.json");
+            fos.write(data.getBytes());
+            fos.flush();
+            fos.close();
+            fos = null;
+        } catch (IOException e) {
+            throw e;
+        } finally {
+            try {
+                if (fos != null) {
+                    fos.close();
+                }
+            } catch (Exception e) {
+
+            }
+        }
+    }
+
     public Exception getErr() {
         return err;
     }
@@ -111,6 +182,11 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                     running = null;
                     h.sendEmptyMessageDelayed(20, 1500);
                 }
+            } else if (regRunning != null && url.matches(regRunning)) {
+                Message msg = new Message();
+                msg.obj = url;
+                msg.what = 30;
+                h.sendMessageDelayed(msg, 1500);
             }
         }
     };
@@ -120,6 +196,10 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
     protected abstract String findSubsScript();
 
     protected abstract String createSearch(String key) throws Exception;
+
+    protected void onMatchRegRunning(WebView view, String url) {
+
+    }
 
     private void callFindSubs(WebView view) {
         view.evaluateJavascript(findSubsScript(), null);
@@ -189,6 +269,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
     @Override
     public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
         try {
+            h.sendEmptyMessage(100);
             if (this.downing != null) {
                 return;
             }
@@ -253,8 +334,9 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                 //
                 File exout = new File(ws, filename + "_");
                 exout.mkdir();
-                err = autoDecompress(file, exout);
+                err = autoDecompress(having, file, exout);
                 subs = listSubs(exout);
+                storeHaving(ws, having);
             } catch (Exception e) {
                 if (fos != null) {
                     fos.close();
@@ -268,7 +350,22 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
         }
     };
 
-    public static Exception decompressACC(File src, File out) {
+    public static Set<String> SUB_EXTS = new HashSet<String>() {
+        {
+            add(".ssa");
+            add(".ass");
+            add(".smi");
+            add(".srt");
+            add(".sub");
+            add(".lrc");
+            add(".sst");
+            add(".xss");
+            add(".psb");
+            add(".ssb");
+        }
+    };
+
+    public static Exception decompressACC(Map<String, String> set, File src, File out) {
         FileInputStream fis = null;
         FileOutputStream fos = null;
         try {
@@ -280,17 +377,37 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                 if (entry.isDirectory()) {
                     continue;
                 }
-                File entryFile = new File(out, entry.getName());
-                File parent = entryFile.getParentFile();
-                if (!parent.exists()) {
-                    parent.mkdirs();
+                String name = new File(entry.getName()).getName();
+                int idx = name.lastIndexOf(".");
+                if (idx < 0) {
+                    continue;
                 }
-                fos = new FileOutputStream(entryFile);
+                String ext = name.substring(idx);
+                if (!SUB_EXTS.contains(ext.toLowerCase())) {
+                    continue;
+                }
+                String oname = name.substring(0, idx);
+                File outfile = new File(out, name);
+                int i = 0;
+                while (outfile.exists()) {
+                    i++;
+                    name = oname + "_" + i + ext;
+                    outfile = new File(out, name);
+                }
+
+                fos = new FileOutputStream(outfile);
+                Sha1OutputStream hos = new Sha1OutputStream(fos);
                 byte[] content = new byte[(int) entry.getSize()];
                 input.read(content, 0, content.length);
-                fos.write(content);
+                hos.write(content);
                 fos.close();
                 fos = null;
+                String sha1 = hos.sha1();
+                if (set.containsKey(sha1)) {
+                    outfile.delete();
+                } else {
+                    set.put(sha1, outfile.getName());
+                }
             }
             input.close();
             return null;
@@ -314,37 +431,91 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
         }
     }
 
-    public static Exception decompressRAR(File src, File out) {
+    public static Exception decompressRAR(Map<String, String> set, File src, File out) {
+        Archive arch = null;
+        FileOutputStream fos = null;
         try {
-            ExtractArchive extract = new ExtractArchive();
-            extract.extractArchive(src, out);
+            arch = new Archive(src);
+            FileHeader fh = null;
+            while (true) {
+                fh = arch.nextFileHeader();
+                if (fh == null) {
+                    break;
+                }
+                if (fh.isDirectory()) {
+                    continue;
+                }
+                String name = new File(fh.getFileNameString()).getName();
+                int idx = name.lastIndexOf(".");
+                if (idx < 0) {
+                    continue;
+                }
+                String ext = name.substring(idx);
+                if (!SUB_EXTS.contains(ext.toLowerCase())) {
+                    continue;
+                }
+                String oname = name.substring(0, idx);
+                File outfile = new File(out, name);
+                int i = 0;
+                while (outfile.exists()) {
+                    i++;
+                    name = oname + "_" + i + ext;
+                    outfile = new File(out, name);
+                }
+                fos = new FileOutputStream(outfile);
+                Sha1OutputStream hos = new Sha1OutputStream(fos);
+                arch.extractFile(fh, hos);
+                fos.close();
+                fos = null;
+                String sha1 = hos.sha1();
+                if (set.containsKey(sha1)) {
+                    outfile.delete();
+                } else {
+                    set.put(sha1, outfile.getName());
+                }
+            }
             return null;
         } catch (Exception e) {
             return e;
+        } finally {
+            try {
+                if (arch != null) {
+                    arch.close();
+                }
+            } catch (Exception e) {
+
+            }
+            try {
+                if (fos != null) {
+                    fos.close();
+                }
+            } catch (Exception e) {
+
+            }
         }
     }
 
 
-    public static Exception autoDecompress(File src, File out) {
+    public static Exception autoDecompress(Map<String, String> set, File src, File out) {
         String[] parts = src.getName().split("\\.");
         String ext = parts.length < 2 ? "" : parts[parts.length - 1];
         Exception err;
         if ("rar".equals(ext.toLowerCase())) {
-            err = decompressRAR(src, out);
+            err = decompressRAR(set, src, out);
             if (err != null) {
-                err = decompressACC(src, out);
+                err = decompressACC(set, src, out);
             }
         } else {
-            err = decompressACC(src, out);
+            err = decompressACC(set, src, out);
             if (err != null) {
-                err = decompressRAR(src, out);
+                err = decompressRAR(set, src, out);
             }
         }
         return err;
     }
 
 
-    public void search(String ws, String key, ValueCallback<List<String>> callback) {
+    public void search(Map<String, String> having, String ws, String key, ValueCallback<List<String>> callback) {
         try {
             this.err = null;
             this.ws = ws;
@@ -354,6 +525,8 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
             this.running = searching;
             this.slinks = new ArrayList<>();
             this.searching = this.searching.trim();
+            this.having = having;
+            this.downing = null;
             this.loadUrl(this.searching);
         } catch (Exception e) {
             this.err = e;

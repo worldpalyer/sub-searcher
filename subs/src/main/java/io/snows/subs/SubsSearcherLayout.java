@@ -9,6 +9,7 @@ import android.webkit.ValueCallback;
 import android.widget.FrameLayout;
 
 import java.util.List;
+import java.util.Map;
 
 public class SubsSearcherLayout extends FrameLayout implements SubSearcher {
 
@@ -25,11 +26,14 @@ public class SubsSearcherLayout extends FrameLayout implements SubSearcher {
         super(context, attrs, defStyleAttr);
     }
 
-    public void search(String ws, String key, ValueCallback<List<String>> callback) {
+    public void search(Map<String, String> having, String ws, String key, ValueCallback<List<String>> callback) {
+        if (having == null) {
+            having = SubSearcherView.loadHaving(ws);
+        }
         int count = this.getChildCount();
         for (int i = 0; i < count; i++) {
             SubSearcher searcher = (SubSearcher) this.getChildAt(i);
-            searcher.search(ws, key, callback);
+            searcher.search(having, ws, key, callback);
         }
     }
 
@@ -40,4 +44,5 @@ public class SubsSearcherLayout extends FrameLayout implements SubSearcher {
             searcher.more(callback);
         }
     }
+
 }
