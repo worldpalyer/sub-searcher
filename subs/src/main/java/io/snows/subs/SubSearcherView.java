@@ -250,10 +250,12 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
         }
         if (err != null) {
             this.callback.onReceiveValue(null);
+            this.callback = null;
             return;
         }
         if (this.slinks.isEmpty()) {
             this.callback.onReceiveValue(null);
+            this.callback = null;
             return;
         }
         this.slinkIdx = 0;
@@ -302,6 +304,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
         public void onFailure(Call call, IOException e) {
             err = e;
             callback.onReceiveValue(null);
+            callback = null;
         }
 
         public void onResponse(Call call, Response response) throws IOException {
@@ -346,6 +349,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
                 file.delete();
             }
             callback.onReceiveValue(subs);
+            callback = null;
         }
     };
 
@@ -529,6 +533,7 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
             this.loadUrl(this.searching);
         } catch (Exception e) {
             this.err = e;
+            this.callback = null;
             callback.onReceiveValue(null);
         }
     }
@@ -541,7 +546,12 @@ public abstract class SubSearcherView extends WebView implements DownloadListene
         this.slinkIdx++;
         String url = this.slinks.get(this.slinkIdx).get("href").toString();
         this.running = url;
+        this.callback = callback;
         this.evaluateJavascript("window.location.href='" + url + "'", null);
+    }
+
+    public boolean isRunning() {
+        return callback != null;
     }
 
     public static List<String> listSubs(File out) {

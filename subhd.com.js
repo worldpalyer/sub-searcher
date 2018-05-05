@@ -59,3 +59,17 @@ function down() {
         }
     })
 }
+
+function findKeys() {
+    var ems = document.getElementsByTagName("em");
+    var emsc = {};
+    for (var i = 0; i < ems.length; i++) {
+        var key = ems[i].innerText.trim().toLowerCase().replace(".", " ");
+        if (emsc[key]) {
+            emsc[key]++;
+        } else {
+            emsc[key] = 1;
+        }
+    }
+    return JSON.stringify(emsc);
+}
